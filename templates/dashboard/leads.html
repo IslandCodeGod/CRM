@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}<span data-i18n="lead.title">Sales Leads</span> - <span data-i18n="app.name">CRM System</span>{%
+endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title" data-i18n="lead.title">Sales Leads</h1>
+    <p class="page-subtitle" data-i18n="lead.subtitle">Track and manage your sales leads</p>
+</div>
+
+<div class="toolbar">
+    <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" class="form-control" data-i18n-placeholder="common.search_placeholder"
+            placeholder="Search...">
+    </div>
+
+    <div class="filter-group">
+        <select id="statusFilter" class="form-control">
+            <option value="" data-i18n="status.all">All Status</option>
+            <option value="new" data-i18n="status.new">New</option>
+            <option value="contacted" data-i18n="status.contacted">Contacted</option>
+            <option value="qualified" data-i18n="status.qualified">Qualified</option>
+            <option value="converted" data-i18n="status.converted">Converted</option>
+            <option value="lost" data-i18n="status.lost">Lost</option>
+        </select>
+    </div>
+
+    <button class="btn btn-primary" onclick="openAddModal()">
+        <span>➕</span>
+        <span data-i18n="lead.add">Add Lead</span>
+    </button>
+</div>
+
+<div class="card">
+    <div id="leadTable"></div>
+    <div id="pagination" class="pagination"></div>
+</div>
+
+<!-- 添加/编辑线索模态框 -->
+<div class="modal-overlay" id="leadModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modalTitle" data-i18n="lead.add">Add Lead</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="leadForm" onsubmit="saveLead(event)">
+            <input type="hidden" id="leadId">
+
+            <div class="form-group">
+                <label for="name" class="form-label"><span data-i18n="lead.name">Name</span> <span
+                        data-i18n="common.required">*</span></label>
+                <input type="text" id="name" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="company" class="form-label" data-i18n="lead.company">Company</label>
+                <input type="text" id="company" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="email" class="form-label" data-i18n="lead.email">Email</label>
+                <input type="email" id="email" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="phone" class="form-label" data-i18n="lead.phone">Phone</label>
+                <input type="tel" id="phone" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="source" class="form-label" data-i18n="lead.source">Source</label>
+                <select id="source" class="form-control">
+                    <option value="website" data-i18n="source.website">Website</option>
+                    <option value="referral" data-i18n="source.referral">Referral</option>
+                    <option value="social" data-i18n="source.social">Social Media</option>
+                    <option value="advertisement" data-i18n="source.advertisement">Advertisement</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="status" class="form-label" data-i18n="lead.status">Status</label>
+                <select id="status" class="form-control">
+                    <option value="new" data-i18n="status.new">New</option>
+                    <option value="contacted" data-i18n="status.contacted">Contacted</option>
+                    <option value="qualified" data-i18n="status.qualified">Qualified</option>
+                    <option value="converted" data-i18n="status.converted">Converted</option>
+                    <option value="lost" data-i18n="status.lost">Lost</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="score" class="form-label"><span data-i18n="lead.score">Score</span> (0-100)</label>
+                <input type="number" id="score" class="form-control" min="0" max="100" value="0">
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-primary" data-i18n="action.save">Save</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()"
+                    data-i18n="action.cancel">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let currentPage = 1;
+    let currentSearch = '';
+    let currentStatus = '';
+    let modal;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        modal = new Modal('leadModal');
+    });
+
+    async function loadLeads(page = 1) {
+        currentPage = page;
+        showLoading();
+
+        try {
+            const params = new URLSearchParams({
+                page: page,
+                per_page: 10,
+                search: currentSearch,
+                status: currentStatus
+            });
+
+            const data = await apiRequest(`/leads/api/list?${params}`);
+            renderLeadTable(data.leads);
+            renderPagination('pagination', data.current_page, data.pages, 'loadLeads');
+        } catch (error) {
+            console.error('Failed to load leads:', error);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    function renderLeadTable(leads) {
+        const container = document.getElementById('leadTable');
+
+        let html = '<div class="table-wrapper"><table class="table">';
+        html += `
+        <thead>
+            <tr>
+                <th data-i18n="lead.name">Name</th>
+                <th data-i18n="lead.company">Company</th>
+                <th data-i18n="lead.contact_info">Contact Info</th>
+                <th data-i18n="lead.source">Source</th>
+                <th data-i18n="lead.score">Score</th>
+                <th data-i18n="lead.status">Status</th>
+                <th data-i18n="common.created_at">Created At</th>
+                <th data-i18n="common.actions">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+        if (leads.length === 0) {
+            html += '<tr><td colspan="8" class="text-center" data-i18n="message.no_data">No data available</td></tr>';
+        } else {
+            leads.forEach(lead => {
+                const contactInfo = [];
+                if (lead.email) contactInfo.push(lead.email);
+                if (lead.phone) contactInfo.push(lead.phone);
+                const contactText = contactInfo.length > 0 ? contactInfo.join(' | ') : '-';
+                
+                html += `
+                <tr>
+                    <td><strong>${lead.name}</strong></td>
+                    <td>${lead.company || '-'}</td>
+                    <td>${contactText}</td>
+                    <td>${lead.source || '-'}</td>
+                    <td><span class="badge badge-primary">${lead.score}</span></td>
+                    <td>${renderStatusBadge(lead.status)}</td>
+                    <td>${formatDate(lead.created_at)}</td>
+                    <td class="data-item-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="editLead(${lead.id})" data-i18n="action.edit">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteLead(${lead.id})" data-i18n="action.delete">Delete</button>
+                    </td>
+                </tr>
+            `;
+            });
+        }
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+
+        if (typeof updatePageLanguage === 'function') {
+            updatePageLanguage();
+        }
+    }
+
+    function openAddModal() {
+        if (!modal) {
+            console.error('Modal not initialized');
+            return;
+        }
+        document.getElementById('modalTitle').setAttribute('data-i18n', 'lead.add');
+        document.getElementById('modalTitle').textContent = t('lead.add');
+        document.getElementById('leadForm').reset();
+        document.getElementById('leadId').value = '';
+        modal.open();
+    }
+
+    async function editLead(id) {
+        try {
+            const lead = await apiRequest(`/leads/api/${id}`);
+
+            document.getElementById('modalTitle').setAttribute('data-i18n', 'lead.edit');
+            document.getElementById('modalTitle').textContent = t('lead.edit');
+            document.getElementById('leadId').value = lead.id;
+            document.getElementById('name').value = lead.name;
+            document.getElementById('company').value = lead.company || '';
+            document.getElementById('email').value = lead.email || '';
+            document.getElementById('phone').value = lead.phone || '';
+            document.getElementById('source').value = lead.source || 'website';
+            document.getElementById('status').value = lead.status;
+            document.getElementById('score').value = lead.score;
+
+            if (modal) {
+                modal.open();
+            } else {
+                console.error('Modal not initialized');
+            }
+        } catch (error) {
+            console.error('Failed to load lead:', error);
+        }
+    }
+
+    async function saveLead(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('leadId').value;
+        const data = {
+            name: document.getElementById('name').value,
+            company: document.getElementById('company').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            source: document.getElementById('source').value,
+            status: document.getElementById('status').value,
+            score: parseInt(document.getElementById('score').value)
+        };
+
+        try {
+            if (id) {
+                await apiRequest(`/leads/api/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                showToast(t('message.success'), 'success');
+            } else {
+                await apiRequest('/leads/api/create', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                showToast(t('message.success'), 'success');
+            }
+
+            closeModal();
+            loadLeads(currentPage);
+        } catch (error) {
+            console.error('Failed to save lead:', error);
+        }
+    }
+
+    async function deleteLead(id) {
+        if (!confirm(t('message.confirm_delete'))) return;
+
+        try {
+            await apiRequest(`/leads/api/${id}`, { method: 'DELETE' });
+            showToast(t('message.success'), 'success');
+            loadLeads(currentPage);
+        } catch (error) {
+            console.error('Failed to delete lead:', error);
+        }
+    }
+
+    function closeModal() {
+        if (modal) {
+            modal.close();
+        } else {
+            console.error('Modal not initialized');
+        }
+    }
+
+    document.getElementById('statusFilter').addEventListener('change', (e) => {
+        currentStatus = e.target.value;
+        loadLeads(1);
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // 初始化搜索功能
+        setupSearch('searchInput', (value) => {
+            currentSearch = value;
+            loadLeads(1);
+        });
+        
+        // 初始加载数据
+        loadLeads();
+    });
+</script>
+{% endblock %}

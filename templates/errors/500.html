@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}500 - Server Error{% endblock %}
+
+{% block content %}
+<div
+    style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
+    <div style="font-size: 6rem; margin-bottom: 1rem;">⚠️</div>
+    <h1 style="font-size: 3rem; margin-bottom: 1rem; color: var(--text-primary);" data-i18n="error.500_title">500 -
+        Server Error</h1>
+    <p style="font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 2rem;" data-i18n="error.500_message">
+        Something went wrong on our end. Please try again later.
+    </p>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">
+        <span data-i18n="error.back_home">Back to Home</span>
+    </a>
+</div>
+{% endblock %}

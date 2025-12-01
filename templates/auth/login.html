@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="auth.login">Login - CRM System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="auth-logo">📊</div>
+                <h1 class="auth-title" data-i18n="auth.welcome_title">Welcome back</h1>
+                <p class="auth-subtitle" data-i18n="auth.welcome_subtitle">Login to your CRM account</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="toast toast-{{ category }}" style="margin-bottom: 1rem;">
+                <div class="toast-message">{{ message }}</div>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('auth.login') }}" class="auth-form">
+                <div class="form-group">
+                    <label for="username" class="form-label" data-i18n="auth.username">Username</label>
+                    <input type="text" id="username" name="username" class="form-control"
+                        data-i18n-placeholder="auth.username" placeholder="Username" required autofocus>
+                    <div class="form-error"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label" data-i18n="auth.password">Password</label>
+                    <input type="password" id="password" name="password" class="form-control"
+                        data-i18n-placeholder="auth.password" placeholder="Password" required>
+                    <div class="form-error"></div>
+                </div>
+
+                <div class="remember-me">
+                    <input type="checkbox" id="remember" name="remember" value="1">
+                    <label for="remember" data-i18n="auth.remember_me">Remember me</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;" data-i18n="auth.login">Login</button>
+            </form>
+
+            <div class="auth-footer">
+                <span data-i18n="auth.no_account">Don't have an account?</span>
+                <a href="{{ url_for('auth.register') }}" class="auth-link" data-i18n="auth.register_now">Register
+                    now</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

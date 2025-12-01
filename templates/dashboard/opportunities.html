@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}<span data-i18n="opportunity.title">Sales Opportunities</span> - <span data-i18n="app.name">CRM
+    System</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title" data-i18n="opportunity.title">Sales Opportunities</h1>
+    <p class="page-subtitle" data-i18n="opportunity.subtitle">Manage your sales opportunities and pipeline</p>
+</div>
+
+<div class="toolbar">
+    <div class="filter-group">
+        <select id="stageFilter" class="form-control">
+            <option value="" data-i18n="stage.all">All Stages</option>
+            <option value="prospecting" data-i18n="stage.prospecting">Prospecting</option>
+            <option value="qualification" data-i18n="stage.qualification">Qualification</option>
+            <option value="proposal" data-i18n="stage.proposal">Proposal</option>
+            <option value="negotiation" data-i18n="stage.negotiation">Negotiation</option>
+            <option value="closed_won" data-i18n="stage.closed_won">Closed Won</option>
+            <option value="closed_lost" data-i18n="stage.closed_lost">Closed Lost</option>
+        </select>
+    </div>
+
+    <button class="btn btn-primary" onclick="openAddModal()">
+        <span>➕</span>
+        <span data-i18n="opportunity.add">Add Opportunity</span>
+    </button>
+</div>
+
+<div id="kanbanContainer"></div>
+
+<!-- 添加/编辑机会模态框 -->
+<div class="modal-overlay" id="opportunityModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modalTitle" data-i18n="opportunity.add">Add Opportunity</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="opportunityForm" onsubmit="saveOpportunity(event)">
+            <input type="hidden" id="opportunityId">
+
+            <div class="form-group">
+                <label for="name" class="form-label"><span data-i18n="opportunity.name">Opportunity Name</span> <span
+                        data-i18n="common.required">*</span></label>
+                <input type="text" id="name" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="customer_id" class="form-label"><span data-i18n="opportunity.customer">Customer</span> <span
+                        data-i18n="common.required">*</span></label>
+                <select id="customer_id" class="form-control" required>
+                    <option value="" data-i18n="opportunity.select_customer">Select Customer</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="stage" class="form-label" data-i18n="opportunity.stage">Stage</label>
+                <select id="stage" class="form-control">
+                    <option value="prospecting" data-i18n="stage.prospecting">Prospecting</option>
+                    <option value="qualification" data-i18n="stage.qualification">Qualification</option>
+                    <option value="proposal" data-i18n="stage.proposal">Proposal</option>
+                    <option value="negotiation" data-i18n="stage.negotiation">Negotiation</option>
+                    <option value="closed_won" data-i18n="stage.closed_won">Closed Won</option>
+                    <option value="closed_lost" data-i18n="stage.closed_lost">Closed Lost</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="amount" class="form-label" data-i18n="opportunity.amount">Amount</label>
+                <input type="number" id="amount" class="form-control" step="0.01" value="0">
+            </div>
+
+            <div class="form-group">
+                <label for="probability" class="form-label"><span data-i18n="opportunity.probability">Probability</span>
+                    (%)</label>
+                <input type="number" id="probability" class="form-control" min="0" max="100" value="10">
+            </div>
+
+            <div class="form-group">
+                <label for="expected_close_date" class="form-label" data-i18n="opportunity.expected_close_date">Expected
+                    Close Date</label>
+                <input type="date" id="expected_close_date" class="form-control">
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-primary" data-i18n="action.save">Save</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()"
+                    data-i18n="action.cancel">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let modal;
+    let kanban;
+    let opportunities = [];
+    let columns;
+
+    async function loadOpportunities() {
+        showLoading();
+
+        try {
+            const data = await apiRequest('/opportunities/api/list?per_page=100');
+            opportunities = data.opportunities;
+
+            kanban = new KanbanBoard('kanbanContainer', columns, handleMove);
+            kanban.render(opportunities);
+        } catch (error) {
+            console.error('Failed to load opportunities:', error);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function handleMove(id, newStage) {
+        try {
+            await apiRequest(`/opportunities/api/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ stage: newStage })
+            });
+            showToast(t('message.success'), 'success');
+            loadOpportunities();
+        } catch (error) {
+            console.error('Failed to update stage:', error);
+        }
+    }
+
+    async function loadCustomers() {
+        try {
+            const data = await apiRequest('/customers/api/list?per_page=100');
+            const select = document.getElementById('customer_id');
+
+            select.innerHTML = `<option value="" data-i18n="opportunity.select_customer">${t('opportunity.select_customer')}</option>`;
+            data.customers.forEach(customer => {
+                select.innerHTML += `<option value="${customer.id}">${customer.name} - ${customer.company || t('customer.no_company')}</option>`;
+            });
+        } catch (error) {
+            console.error('Failed to load customers:', error);
+        }
+    }
+
+    function openAddModal() {
+        if (!modal) {
+            console.error('Modal not initialized');
+            return;
+        }
+        document.getElementById('modalTitle').setAttribute('data-i18n', 'opportunity.add');
+        document.getElementById('modalTitle').textContent = t('opportunity.add');
+        document.getElementById('opportunityForm').reset();
+        document.getElementById('opportunityId').value = '';
+        loadCustomers();
+        modal.open();
+    }
+
+    async function saveOpportunity(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('opportunityId').value;
+        const data = {
+            name: document.getElementById('name').value,
+            customer_id: parseInt(document.getElementById('customer_id').value),
+            stage: document.getElementById('stage').value,
+            amount: parseFloat(document.getElementById('amount').value),
+            probability: parseInt(document.getElementById('probability').value),
+            expected_close_date: document.getElementById('expected_close_date').value || null
+        };
+
+        try {
+            if (id) {
+                await apiRequest(`/opportunities/api/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                showToast(t('message.success'), 'success');
+            } else {
+                await apiRequest('/opportunities/api/create', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                showToast(t('message.success'), 'success');
+            }
+
+            closeModal();
+            loadOpportunities();
+        } catch (error) {
+            console.error('Failed to save opportunity:', error);
+        }
+    }
+
+    function closeModal() {
+        if (modal) {
+            modal.close();
+        } else {
+            console.error('Modal not initialized');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        modal = new Modal('opportunityModal');
+        // 初始化列配置，确保t()函数可用
+        columns = [
+            { label: t('stage.prospecting'), value: 'prospecting' },
+            { label: t('stage.qualification'), value: 'qualification' },
+            { label: t('stage.proposal'), value: 'proposal' },
+            { label: t('stage.negotiation'), value: 'negotiation' },
+            { label: t('stage.closed_won'), value: 'closed_won' }
+        ];
+        loadOpportunities();
+    });
+</script>
+{% endblock %}

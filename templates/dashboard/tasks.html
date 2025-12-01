@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block title %}<span data-i18n="task.title">Task Management</span> - <span data-i18n="app.name">CRM System</span>{%
+endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title" data-i18n="task.title">Task Management</h1>
+    <p class="page-subtitle" data-i18n="task.subtitle">Manage your tasks and activities</p>
+</div>
+
+<div class="toolbar">
+    <div class="filter-group">
+        <select id="statusFilter" class="form-control">
+            <option value="" data-i18n="status.all">All Status</option>
+            <option value="pending" data-i18n="status.pending">Pending</option>
+            <option value="in_progress" data-i18n="status.in_progress">In Progress</option>
+            <option value="completed" data-i18n="status.completed">Completed</option>
+            <option value="cancelled" data-i18n="status.cancelled">Cancelled</option>
+        </select>
+
+        <select id="priorityFilter" class="form-control">
+            <option value="" data-i18n="priority.all">All Priorities</option>
+            <option value="low" data-i18n="priority.low">Low</option>
+            <option value="medium" data-i18n="priority.medium">Medium</option>
+            <option value="high" data-i18n="priority.high">High</option>
+            <option value="urgent" data-i18n="priority.urgent">Urgent</option>
+        </select>
+    </div>
+
+    <button class="btn btn-primary" onclick="openAddModal()">
+        <span>➕</span>
+        <span data-i18n="task.add">Add Task</span>
+    </button>
+</div>
+
+<div class="card">
+    <div id="taskTable"></div>
+    <div id="pagination" class="pagination"></div>
+</div>
+
+<!-- 添加/编辑任务模态框 -->
+<div class="modal-overlay" id="taskModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modalTitle" data-i18n="task.add">Add Task</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="taskForm" onsubmit="saveTask(event)">
+            <input type="hidden" id="taskId">
+
+            <div class="form-group">
+                <label for="title" class="form-label"><span data-i18n="task.task_title">Task Title</span> <span
+                        data-i18n="common.required">*</span></label>
+                <input type="text" id="title" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label" data-i18n="task.description">Description</label>
+                <textarea id="description" class="form-control"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="priority" class="form-label" data-i18n="task.priority">Priority</label>
+                <select id="priority" class="form-control">
+                    <option value="low" data-i18n="priority.low">Low</option>
+                    <option value="medium" selected data-i18n="priority.medium">Medium</option>
+                    <option value="high" data-i18n="priority.high">High</option>
+                    <option value="urgent" data-i18n="priority.urgent">Urgent</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="status" class="form-label" data-i18n="task.status">Status</label>
+                <select id="status" class="form-control">
+                    <option value="pending" selected data-i18n="status.pending">Pending</option>
+                    <option value="in_progress" data-i18n="status.in_progress">In Progress</option>
+                    <option value="completed" data-i18n="status.completed">Completed</option>
+                    <option value="cancelled" data-i18n="status.cancelled">Cancelled</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="due_date" class="form-label" data-i18n="task.due_date">Due Date</label>
+                <input type="datetime-local" id="due_date" class="form-control">
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-primary" data-i18n="action.save">Save</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()"
+                    data-i18n="action.cancel">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let currentPage = 1;
+    let currentStatus = '';
+    let currentPriority = '';
+    let modal;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        modal = new Modal('taskModal');
+    });
+
+    async function loadTasks(page = 1) {
+        currentPage = page;
+        showLoading();
+
+        try {
+            const params = new URLSearchParams({
+                page: page,
+                per_page: 10,
+                status: currentStatus,
+                priority: currentPriority
+            });
+
+            const data = await apiRequest(`/tasks/api/list?${params}`);
+            renderTaskTable(data.tasks);
+            renderPagination('pagination', data.current_page, data.pages, 'loadTasks');
+        } catch (error) {
+            console.error('Failed to load tasks:', error);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    function renderTaskTable(tasks) {
+        const container = document.getElementById('taskTable');
+
+        let html = '<div class="table-wrapper"><table class="table">';
+        html += `
+        <thead>
+            <tr>
+                <th data-i18n="task.task_title">Title</th>
+                <th data-i18n="task.description">Description</th>
+                <th data-i18n="task.priority">Priority</th>
+                <th data-i18n="task.status">Status</th>
+                <th data-i18n="task.due_date">Due Date</th>
+                <th data-i18n="common.created_at">Created At</th>
+                <th data-i18n="common.actions">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+        if (tasks.length === 0) {
+            html += '<tr><td colspan="7" class="text-center" data-i18n="message.no_data">No data available</td></tr>';
+        } else {
+            tasks.forEach(task => {
+                html += `
+                <tr>
+                    <td><strong>${task.title}</strong></td>
+                    <td>${task.description || '-'}</td>
+                    <td>${renderPriorityBadge(task.priority)}</td>
+                    <td>${renderStatusBadge(task.status)}</td>
+                    <td>${formatDateTime(task.due_date)}</td>
+                    <td>${formatDate(task.created_at)}</td>
+                    <td class="data-item-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="editTask(${task.id})" data-i18n="action.edit">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteTask(${task.id})" data-i18n="action.delete">Delete</button>
+                    </td>
+                </tr>
+            `;
+            });
+        }
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+
+        if (typeof updatePageLanguage === 'function') {
+            updatePageLanguage();
+        }
+    }
+
+    function openAddModal() {
+        if (!modal) {
+            console.error('Modal not initialized');
+            return;
+        }
+        document.getElementById('modalTitle').setAttribute('data-i18n', 'task.add');
+        document.getElementById('modalTitle').textContent = t('task.add');
+        document.getElementById('taskForm').reset();
+        document.getElementById('taskId').value = '';
+        modal.open();
+    }
+
+    async function editTask(id) {
+        try {
+            const task = await apiRequest(`/tasks/api/${id}`);
+
+            document.getElementById('modalTitle').setAttribute('data-i18n', 'task.edit');
+            document.getElementById('modalTitle').textContent = t('task.edit');
+            document.getElementById('taskId').value = task.id;
+            document.getElementById('title').value = task.title;
+            document.getElementById('description').value = task.description || '';
+            document.getElementById('priority').value = task.priority;
+            document.getElementById('status').value = task.status;
+
+            if (task.due_date) {
+                const date = new Date(task.due_date);
+                document.getElementById('due_date').value = date.toISOString().slice(0, 16);
+            }
+
+            if (modal) {
+                modal.open();
+            } else {
+                console.error('Modal not initialized');
+            }
+        } catch (error) {
+            console.error('Failed to load task:', error);
+        }
+    }
+
+    async function saveTask(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('taskId').value;
+        const data = {
+            title: document.getElementById('title').value,
+            description: document.getElementById('description').value,
+            priority: document.getElementById('priority').value,
+            status: document.getElementById('status').value,
+            due_date: document.getElementById('due_date').value || null
+        };
+
+        try {
+            if (id) {
+                await apiRequest(`/tasks/api/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                showToast(t('message.success'), 'success');
+            } else {
+                await apiRequest('/tasks/api/create', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                showToast(t('message.success'), 'success');
+            }
+
+            closeModal();
+            loadTasks(currentPage);
+        } catch (error) {
+            console.error('Failed to save task:', error);
+        }
+    }
+
+    async function deleteTask(id) {
+        if (!confirm(t('message.confirm_delete'))) return;
+
+        try {
+            await apiRequest(`/tasks/api/${id}`, { method: 'DELETE' });
+            showToast(t('message.success'), 'success');
+            loadTasks(currentPage);
+        } catch (error) {
+            console.error('Failed to delete task:', error);
+        }
+    }
+
+    function closeModal() {
+        if (modal) {
+            modal.close();
+        } else {
+            console.error('Modal not initialized');
+        }
+    }
+
+    document.getElementById('statusFilter').addEventListener('change', (e) => {
+        currentStatus = e.target.value;
+        loadTasks(1);
+    });
+
+    document.getElementById('priorityFilter').addEventListener('change', (e) => {
+        currentPriority = e.target.value;
+        loadTasks(1);
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadTasks();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}<span data-i18n="customer.title">Customer Management</span> - <span data-i18n="app.name">CRM
+    System</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title" data-i18n="customer.title">Customer Management</h1>
+    <p class="page-subtitle" data-i18n="customer.subtitle">Manage your customer information</p>
+</div>
+
+<div class="toolbar">
+    <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" class="form-control" data-i18n-placeholder="common.search_placeholder"
+            placeholder="Search...">
+    </div>
+
+    <div class="filter-group">
+        <select id="statusFilter" class="form-control">
+            <option value="" data-i18n="status.all">All Status</option>
+            <option value="active" data-i18n="status.active">Active</option>
+            <option value="inactive" data-i18n="status.inactive">Inactive</option>
+            <option value="potential" data-i18n="status.potential">Potential</option>
+        </select>
+    </div>
+
+    <button class="btn btn-primary" onclick="openAddModal()">
+        <span>➕</span>
+        <span data-i18n="customer.add">Add Customer</span>
+    </button>
+</div>
+
+<div class="card">
+    <div id="customerTable"></div>
+    <div id="pagination" class="pagination"></div>
+</div>
+
+<!-- 添加/编辑客户模态框 -->
+<div class="modal-overlay" id="customerModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modalTitle" data-i18n="customer.add">Add Customer</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="customerForm" onsubmit="saveCustomer(event)">
+            <input type="hidden" id="customerId">
+
+            <div class="form-group">
+                <label for="name" class="form-label"><span data-i18n="customer.name">Name</span> <span
+                        data-i18n="common.required">*</span></label>
+                <input type="text" id="name" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="company" class="form-label" data-i18n="customer.company">Company</label>
+                <input type="text" id="company" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="industry" class="form-label" data-i18n="customer.industry">Industry</label>
+                <input type="text" id="industry" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="email" class="form-label" data-i18n="customer.email">Email</label>
+                <input type="email" id="email" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="phone" class="form-label" data-i18n="customer.phone">Phone</label>
+                <input type="tel" id="phone" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="address" class="form-label" data-i18n="customer.address">Address</label>
+                <textarea id="address" class="form-control"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="status" class="form-label" data-i18n="customer.status">Status</label>
+                <select id="status" class="form-control">
+                    <option value="potential" data-i18n="status.potential">Potential</option>
+                    <option value="active" data-i18n="status.active">Active</option>
+                    <option value="inactive" data-i18n="status.inactive">Inactive</option>
+                </select>
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-primary" data-i18n="action.save">Save</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()"
+                    data-i18n="action.cancel">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let currentPage = 1;
+    let currentSearch = '';
+    let currentStatus = '';
+    let modal;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        modal = new Modal('customerModal');
+    });
+
+    // 加载客户列表
+    async function loadCustomers(page = 1) {
+        currentPage = page;
+        showLoading();
+
+        try {
+            const params = new URLSearchParams({
+                page: page,
+                per_page: 10,
+                search: currentSearch,
+                status: currentStatus
+            });
+
+            const data = await apiRequest(`/customers/api/list?${params}`);
+            renderCustomerTable(data.customers);
+            renderPagination('pagination', data.current_page, data.pages, 'loadCustomers');
+        } catch (error) {
+            console.error('Failed to load customers:', error);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 渲染客户表格
+    function renderCustomerTable(customers) {
+        const container = document.getElementById('customerTable');
+
+        let html = '<div class="table-wrapper"><table class="table">';
+        html += `
+        <thead>
+            <tr>
+                <th data-i18n="customer.name">Name</th>
+                <th data-i18n="customer.company">Company</th>
+                <th data-i18n="customer.industry">Industry</th>
+                <th data-i18n="customer.contact_info">Contact Info</th>
+                <th data-i18n="customer.status">Status</th>
+                <th data-i18n="common.created_at">Created At</th>
+                <th data-i18n="common.actions">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+        if (customers.length === 0) {
+            html += '<tr><td colspan="7" class="text-center" data-i18n="message.no_data">No data available</td></tr>';
+        } else {
+            customers.forEach(customer => {
+                const contactInfo = [];
+                if (customer.email) contactInfo.push(customer.email);
+                if (customer.phone) contactInfo.push(customer.phone);
+                const contactText = contactInfo.length > 0 ? contactInfo.join(' | ') : '-';
+                
+                html += `
+                <tr>
+                    <td><strong>${customer.name}</strong></td>
+                    <td>${customer.company || '-'}</td>
+                    <td>${customer.industry || '-'}</td>
+                    <td>${contactText}</td>
+                    <td>${renderStatusBadge(customer.status)}</td>
+                    <td>${formatDate(customer.created_at)}</td>
+                    <td class="data-item-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="editCustomer(${customer.id})" data-i18n="action.edit">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteCustomer(${customer.id})" data-i18n="action.delete">Delete</button>
+                    </td>
+                </tr>
+            `;
+            });
+        }
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+
+        // 重新应用翻译
+        if (typeof updatePageLanguage === 'function') {
+            updatePageLanguage();
+        }
+    }
+
+    // 打开添加模态框
+    function openAddModal() {
+        if (!modal) {
+            console.error('Modal not initialized');
+            return;
+        }
+        document.getElementById('modalTitle').setAttribute('data-i18n', 'customer.add');
+        document.getElementById('modalTitle').textContent = t('customer.add');
+        document.getElementById('customerForm').reset();
+        document.getElementById('customerId').value = '';
+        modal.open();
+    }
+
+    // 编辑客户
+    async function editCustomer(id) {
+        try {
+            const customer = await apiRequest(`/customers/api/${id}`);
+
+            document.getElementById('modalTitle').setAttribute('data-i18n', 'customer.edit');
+            document.getElementById('modalTitle').textContent = t('customer.edit');
+            document.getElementById('customerId').value = customer.id;
+            document.getElementById('name').value = customer.name;
+            document.getElementById('company').value = customer.company || '';
+            document.getElementById('industry').value = customer.industry || '';
+            document.getElementById('email').value = customer.email || '';
+            document.getElementById('phone').value = customer.phone || '';
+            document.getElementById('address').value = customer.address || '';
+            document.getElementById('status').value = customer.status;
+
+            if (modal) {
+                modal.open();
+            } else {
+                console.error('Modal not initialized');
+            }
+        } catch (error) {
+            console.error('Failed to load customer:', error);
+        }
+    }
+
+    // 保存客户
+    async function saveCustomer(event) {
+        event.preventDefault();
+
+        const id = document.getElementById('customerId').value;
+        const data = {
+            name: document.getElementById('name').value,
+            company: document.getElementById('company').value,
+            industry: document.getElementById('industry').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            address: document.getElementById('address').value,
+            status: document.getElementById('status').value
+        };
+
+        try {
+            if (id) {
+                await apiRequest(`/customers/api/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                showToast(t('message.success'), 'success');
+            } else {
+                await apiRequest('/customers/api/create', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                showToast(t('message.success'), 'success');
+            }
+
+            closeModal();
+            loadCustomers(currentPage);
+        } catch (error) {
+            console.error('Failed to save customer:', error);
+        }
+    }
+
+    // 删除客户
+    async function deleteCustomer(id) {
+        if (!confirm(t('message.confirm_delete'))) return;
+
+        try {
+            await apiRequest(`/customers/api/${id}`, { method: 'DELETE' });
+            showToast(t('message.success'), 'success');
+            loadCustomers(currentPage);
+        } catch (error) {
+            console.error('Failed to delete customer:', error);
+        }
+    }
+
+    // 关闭模态框
+    function closeModal() {
+        if (modal) {
+            modal.close();
+        } else {
+            console.error('Modal not initialized');
+        }
+    }
+
+    // 状态筛选
+    document.getElementById('statusFilter').addEventListener('change', (e) => {
+        currentStatus = e.target.value;
+        loadCustomers(1);
+    });
+
+    // 初始加载
+    document.addEventListener('DOMContentLoaded', () => {
+        // 初始化搜索功能
+        setupSearch('searchInput', (value) => {
+            currentSearch = value;
+            loadCustomers(1);
+        });
+        
+        // 加载数据
+        loadCustomers();
+    });
+</script>
+{% endblock %}

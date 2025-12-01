@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}<span data-i18n="dashboard.title">Dashboard</span> - <span data-i18n="app.name">CRM System</span>{%
+endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title" data-i18n="dashboard.title">Dashboard</h1>
+    <p class="page-subtitle"><span data-i18n="app.welcome">Welcome back</span>, {{ current_user.username }}！</p>
+</div>
+
+<!-- 统计卡片 -->
+<div class="stats-grid">
+    <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="stat-value">{{ stats.total_customers }}</div>
+        <div class="stat-label" data-i18n="dashboard.total_customers">Total Customers</div>
+    </div>
+
+    <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <div class="stat-value">{{ stats.total_leads }}</div>
+        <div class="stat-label" data-i18n="dashboard.total_leads">Leads</div>
+    </div>
+
+    <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+        <div class="stat-value">{{ stats.total_opportunities }}</div>
+        <div class="stat-label" data-i18n="dashboard.total_opportunities">Opportunities</div>
+    </div>
+
+    <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+        <div class="stat-value">{{ stats.pending_tasks }}</div>
+        <div class="stat-label" data-i18n="dashboard.pending_tasks">Pending Tasks</div>
+    </div>
+</div>
+
+<!-- 图表区域 -->
+<div class="chart-grid">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title" data-i18n="dashboard.sales_funnel">Sales Funnel</h3>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="salesFunnelChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title" data-i18n="dashboard.key_metrics">Key Metrics</h3>
+        </div>
+        <div class="card-body">
+            <div id="keyMetrics">
+                <div class="data-item">
+                    <div class="data-item-info">
+                        <div class="data-item-title" data-i18n="dashboard.new_customers">New Customers This Month</div>
+                        <div class="data-item-subtitle" data-i18n="dashboard.growth">Growth vs Last Month</div>
+                    </div>
+                    <div class="stat-value" style="font-size: 1.5rem;" id="newCustomers">-</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-item-info">
+                        <div class="data-item-title" data-i18n="dashboard.total_amount">Total Opportunity Amount</div>
+                        <div class="data-item-subtitle" data-i18n="dashboard.expected_revenue">Expected Revenue</div>
+                    </div>
+                    <div class="stat-value" style="font-size: 1.5rem;" id="totalAmount">-</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-item-info">
+                        <div class="data-item-title" data-i18n="dashboard.conversion_rate">Lead Conversion Rate</div>
+                        <div class="data-item-subtitle" data-i18n="dashboard.this_month">This Month</div>
+                    </div>
+                    <div class="stat-value" style="font-size: 1.5rem;" id="conversionRate">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近活动 -->
+<div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: var(--spacing-lg); margin-top: var(--spacing-xl);">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title" data-i18n="dashboard.recent_tasks">Recent Tasks</h3>
+            <a href="{{ url_for('task.index') }}" class="btn btn-sm btn-secondary" data-i18n="dashboard.view_all">View
+                All</a>
+        </div>
+        <div class="card-body">
+            <ul class="data-list">
+                {% if recent_tasks %}
+                {% for task in recent_tasks %}
+                <li class="data-item">
+                    <div class="data-item-info">
+                        <div class="data-item-title">{{ task.title }}</div>
+                        <div class="data-item-subtitle">{{ task.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                    </div>
+                    <span class="badge badge-{{ 'success' if task.status == 'completed' else 'warning' }}">
+                        {{ task.status }}
+                    </span>
+                </li>
+                {% endfor %}
+                {% else %}
+                <li class="empty-state">
+                    <div class="empty-state-text" data-i18n="dashboard.no_tasks">No tasks</div>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title" data-i18n="dashboard.recent_customers">Recent Customers</h3>
+            <a href="{{ url_for('customer.index') }}" class="btn btn-sm btn-secondary"
+                data-i18n="dashboard.view_all">View All</a>
+        </div>
+        <div class="card-body">
+            <ul class="data-list">
+                {% if recent_customers %}
+                {% for customer in recent_customers %}
+                <li class="data-item">
+                    <div class="data-item-info">
+                        <div class="data-item-title">{{ customer.name }}</div>
+                        <div class="data-item-subtitle">{{ customer.company or t('customer.no_company') }}</div>
+                    </div>
+                    <span class="badge badge-{{ 'success' if customer.status == 'active' else 'warning' }}">
+                        {{ customer.status }}
+                    </span>
+                </li>
+                {% endfor %}
+                {% else %}
+                <li class="empty-state">
+                    <div class="empty-state-text" data-i18n="dashboard.no_customers">No customers</div>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 加载统计数据
+    async function loadStats() {
+        try {
+            const data = await apiRequest('/api/stats');
+
+            document.getElementById('newCustomers').textContent = data.new_customers;
+            document.getElementById('totalAmount').textContent = formatCurrency(data.total_amount);
+            document.getElementById('conversionRate').textContent = data.conversion_rate + '%';
+
+            // 渲染销售漏斗图
+            renderSalesFunnelChart('salesFunnelChart', data.funnel_data);
+        } catch (error) {
+            console.error('Failed to load stats:', error);
+        }
+    }
+
+    // 页面加载时获取数据
+    document.addEventListener('DOMContentLoaded', loadStats);
+</script>
+{% endblock %}

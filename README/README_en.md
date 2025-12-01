@@ -1,4 +1,4 @@
-[中文](README/README_zh.md)|English|[German](README/README_de.md)|[Español](README/README_es.md)|[Français](README/README_fr.md)|[Italiano](README/README_it.md)|[日本語](README/README_ja.md)|[한국어](README/README_ko.md)|[Nederlands](README/README_nl.md)|[Polski](README/README_pl.md)|[Português](README/README_pt.md)|[Русский](README/README_ru.md)|[العربية](README/README_ar.md)|[हिन्दी](README/README_hi.md)|[Svenska](README/README_sv.md)|[ไทย](README/README_th.md)|[Türkçe](README/README_tr.md)|[Tiếng Việt](README/README_vi.md)
+[中文](README_zh.md)|English|[German](README_de.md)|[Español](README_es.md)|[Français](README_fr.md)|[Italiano](README_it.md)|[日本語](README_ja.md)|[한국어](README_ko.md)|[Nederlands](README_nl.md)|[Polski](README_pl.md)|[Português](README_pt.md)|[Русский](README_ru.md)|[العربية](README_ar.md)|[हिन्दी](README_hi.md)|[Svenska](README_sv.md)|[ไทย](README_th.md)|[Türkçe](README_tr.md)|[Tiếng Việt](README_vi.md)
 
 # CRM System
 
@@ -139,7 +139,7 @@ After login, you'll automatically enter the dashboard where you can see:
 - Key metrics (new customers this month, total opportunity amount, lead conversion rate)
 - Recent tasks and recent customers lists
 
-![Dashboard Interface](README/screenshots/dashboard.png)
+![Dashboard Interface](screenshots/dashboard.png)
 
 ### 3. Customer Management
 

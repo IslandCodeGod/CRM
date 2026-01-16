@@ -272,8 +272,6 @@ Edit the `config.py` file to modify application configuration.
 
 MIT License
 
-## Contact Information
-
 ---
 
 Thank you for using this project!

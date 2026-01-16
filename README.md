@@ -274,11 +274,6 @@ MIT License
 
 ## Contact Information
 
-For any questions, suggestions, or if you need the complete version/custom development, please contact us through:
-
-- **Email**: austinlive666@gmail.com (Recommended)
-- **Discord**: [https://discord.gg/7AN9PuGn](https://discord.gg/7AN9PuGn)
-
 ---
 
 Thank you for using this project!
